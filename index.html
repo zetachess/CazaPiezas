@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#090b10">
     <title>GOBLINAJEDREZ CazaPiezas</title>
-    <link rel="stylesheet" href="styles.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=4">
   </head>
   <body>
     <main class="game-shell" aria-label="GOBLINAJEDREZ CazaPiezas">
@@ -25,11 +25,16 @@
       </header>
 
       <section class="board-wrap">
+        <div class="combo-pill" id="comboPill" aria-live="polite">
+          <strong id="comboText">x1</strong>
+          <span id="comboLabel">Racha</span>
+          <i id="comboBar"></i>
+        </div>
         <canvas id="game" width="720" height="720" aria-label="Tablero de GOBLINAJEDREZ CazaPiezas"></canvas>
         <div class="overlay" id="overlay">
           <img src="assets/goblin-logo.png" alt="">
           <h1>CazaPiezas</h1>
-          <p>Come piezas, esquiva jaques y domina el tablero.</p>
+          <p>Encadena capturas, activa combos y caza piezas doradas.</p>
           <button id="startButton" type="button">Jugar</button>
         </div>
       </section>
@@ -44,6 +49,6 @@
       </footer>
     </main>
 
-    <script src="game.js?v=3"></script>
+    <script src="game.js?v=4"></script>
   </body>
 </html>
