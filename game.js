@@ -10,6 +10,7 @@
   const comboBar = document.getElementById("comboBar");
   const overlay = document.getElementById("overlay");
   const startButton = document.getElementById("startButton");
+  const controls = document.querySelector(".controls");
   const logo = new Image();
   logo.src = "assets/goblin-logo.png";
   const pieceBase = "assets/pieces/cburnett";
@@ -80,6 +81,7 @@
     unlockAudio();
     reset();
     running = true;
+    controls.classList.add("active");
     overlay.classList.add("hidden");
     lastStep = performance.now();
     requestAnimationFrame(loop);
@@ -451,6 +453,7 @@
 
   function gameOver() {
     running = false;
+    controls.classList.remove("active");
     playGameOverSound();
     overlay.querySelector("h1").textContent = "Jaque mate";
     overlay.querySelector("p").textContent = `Puntuacion: ${score}. Pulsa jugar para la revancha.`;
