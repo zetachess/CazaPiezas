@@ -3,6 +3,7 @@
   const ctx = canvas.getContext("2d");
   const scoreNode = document.getElementById("score");
   const levelNode = document.getElementById("level");
+  const livesNode = document.getElementById("lives");
   const bestNode = document.getElementById("best");
   const comboPill = document.getElementById("comboPill");
   const comboText = document.getElementById("comboText");
@@ -20,10 +21,10 @@
   const cell = canvas.width / size;
   const pieces = [
     { asset: "wP", value: 10, name: "peon" },
-    { asset: "wN", value: 20, name: "caballo" },
-    { asset: "wB", value: 25, name: "alfil" },
-    { asset: "wR", value: 30, name: "torre" },
-    { asset: "wQ", value: 50, name: "reina" },
+    { asset: "wN", value: 30, name: "caballo" },
+    { asset: "wB", value: 30, name: "alfil" },
+    { asset: "wR", value: 40, name: "torre" },
+    { asset: "wQ", value: 90, name: "reina" },
   ];
 
   let snake;
@@ -33,6 +34,7 @@
   let traps;
   let score;
   let level;
+  let lives;
   let best = Number(localStorage.getItem("goblinsnake-best") || 0);
   let running = false;
   let lastStep = 0;
@@ -65,6 +67,7 @@
     traps = [];
     score = 0;
     level = 1;
+    lives = 3;
     speed = 280;
     combo = 1;
     comboCount = 0;
@@ -108,7 +111,7 @@
     const next = { x: head.x + dir.x, y: head.y + dir.y };
 
     if (hitWall(next)) {
-      gameOver("Te saliste del tablero.");
+      gameOver("Te saliste del tablero. Partida terminada.");
       return;
     }
 
@@ -117,8 +120,13 @@
       return;
     }
 
-    if (traps.some((trap) => same(trap, next))) {
-      gameOver("Capturaste al rey. No captures al rey.");
+    const trapIndex = traps.findIndex((trap) => same(trap, next));
+    if (trapIndex !== -1) {
+      traps.splice(trapIndex, 1);
+      snake.unshift(next);
+      snake.pop();
+      loseLife("Cuidado! Has tocado al rey. -1 vida", next);
+      if (running) placeTraps();
       return;
     }
 
@@ -167,17 +175,31 @@
   }
 
   function spawnFood() {
-    const open = emptyCells();
-    if (!open.length) {
+    const options = foodOptions();
+    if (!options.length) {
       gameOver("Tablero conquistado. Partida perfecta.");
       return;
     }
-    food = open[Math.floor(Math.random() * open.length)];
-    Object.assign(food, pieces[Math.floor(Math.random() * pieces.length)]);
+    const option = options[Math.floor(Math.random() * options.length)];
+    food = { x: option.cell.x, y: option.cell.y };
+    Object.assign(food, option.piece);
     food.bonus = Math.random() < 0.18;
     if (food.bonus && running) {
       playBonusSpawnSound();
     }
+  }
+
+  function foodOptions() {
+    const open = emptyCells();
+    const options = [];
+    pieces.forEach((piece) => {
+      open.forEach((cellPos) => {
+        if (isValidFoodCell(piece, cellPos)) {
+          options.push({ piece, cell: cellPos });
+        }
+      });
+    });
+    return options;
   }
 
   function placeTraps() {
@@ -205,6 +227,18 @@
       }
     }
     return cells;
+  }
+
+  // Peones solo pueden aparecer en filas centrales, nunca en las filas 1 u 8.
+  function isPawnForbiddenRank(cellPos) {
+    return cellPos.y === 0 || cellPos.y === size - 1;
+  }
+
+  function isValidFoodCell(piece, cellPos) {
+    if (hitWall(cellPos)) return false;
+    if (piece.asset === "wP" && isPawnForbiddenRank(cellPos)) return false;
+    return !snake.some((part) => same(part, cellPos)) &&
+      !traps.some((trap) => same(trap, cellPos));
   }
 
   function draw() {
@@ -363,12 +397,13 @@
     ctx.fillText(asset, x * cell + cell / 2, y * cell + cell / 2);
   }
 
-  function addBurst(pos, value, multiplier, bonus, customText) {
+  function addBurst(pos, value, multiplier, bonus, customText, danger) {
     bursts.push({
       x: pos.x * cell + cell / 2,
       y: pos.y * cell + cell / 2,
       value,
       age: 0,
+      danger,
       text: customText || `${bonus ? "💎 " : ""}${multiplier > 1 ? `x${multiplier} ` : ""}+${value}`,
     });
   }
@@ -379,7 +414,7 @@
       const alpha = 1 - burst.age / 34;
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = burst.value >= 75 ? "#7fcdd8" : "#fff3bd";
+      ctx.fillStyle = burst.danger ? "#ff7680" : burst.value >= 75 ? "#7fcdd8" : "#fff3bd";
       ctx.font = `800 ${cell * (burst.value >= 75 ? 0.2 : 0.18)}px Segoe UI, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -500,6 +535,11 @@
     tone.stop(now + 0.2);
   }
 
+  function playLifeLostSound() {
+    playDangerSound();
+    setTimeout(() => playTinyPing(220), 85);
+  }
+
   function playTinyPing(frequency) {
     if (!audioContext) return;
     const now = audioContext.currentTime;
@@ -553,6 +593,29 @@
     scoreNode.textContent = score;
     levelNode.textContent = level;
     bestNode.textContent = best;
+    updateLivesHud();
+  }
+
+  function updateLivesHud() {
+    if (!livesNode) return;
+    livesNode.textContent = "♥".repeat(lives) + "♡".repeat(Math.max(0, 3 - lives));
+  }
+
+  function loseLife(reason, pos) {
+    lives = Math.max(0, lives - 1);
+    combo = 1;
+    comboCount = 0;
+    comboUntil = 0;
+    screenShake = 11;
+    addBurst(pos || snake[0], 0, 1, false, "♥ -1", true);
+    updateHud();
+    updateComboHud();
+    playLifeLostSound();
+    if (lives <= 0) {
+      gameOver("Has perdido todas tus vidas.");
+      return;
+    }
+    addBurst(pos || snake[0], 0, 1, false, reason, true);
   }
 
   function gameOver(reason) {
