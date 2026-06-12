@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#090b10">
     <title>GOBLINAJEDREZ CazaPiezas</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
   </head>
   <body>
     <main class="game-shell" aria-label="GOBLINAJEDREZ CazaPiezas">
@@ -31,12 +31,6 @@
           <i id="comboBar"></i>
         </div>
         <canvas id="game" width="720" height="720" aria-label="Tablero de GOBLINAJEDREZ CazaPiezas"></canvas>
-        <footer class="controls" aria-label="Controles tactiles">
-          <button type="button" data-dir="up" aria-label="Arriba">&#9650;</button>
-          <button type="button" data-dir="down" aria-label="Abajo">&#9660;</button>
-          <button type="button" data-dir="right" aria-label="Derecha">&#9654;</button>
-          <button type="button" data-dir="left" aria-label="Izquierda">&#9664;</button>
-        </footer>
         <div class="overlay" id="overlay">
           <img src="assets/goblin-logo.png" alt="">
           <h1>CazaPiezas</h1>
@@ -45,8 +39,14 @@
         </div>
       </section>
 
+      <footer class="controls" aria-label="Controles tactiles">
+        <button type="button" data-dir="up" aria-label="Arriba">&#9650;</button>
+        <button type="button" data-dir="left" aria-label="Izquierda">&#9664;</button>
+        <button type="button" data-dir="right" aria-label="Derecha">&#9654;</button>
+        <button type="button" data-dir="down" aria-label="Abajo">&#9660;</button>
+      </footer>
     </main>
 
-    <script src="game.js?v=6"></script>
+    <script src="game.js?v=7"></script>
   </body>
 </html>
