@@ -107,8 +107,18 @@
     const head = snake[0];
     const next = { x: head.x + dir.x, y: head.y + dir.y };
 
-    if (hitWall(next) || hitSnake(next) || traps.some((trap) => same(trap, next))) {
-      gameOver();
+    if (hitWall(next)) {
+      gameOver("Te saliste del tablero.");
+      return;
+    }
+
+    if (hitSnake(next)) {
+      gameOver("Chocaste con tu propia cadena.");
+      return;
+    }
+
+    if (traps.some((trap) => same(trap, next))) {
+      gameOver("Capturaste al rey. No captures al rey.");
       return;
     }
 
@@ -159,7 +169,7 @@
   function spawnFood() {
     const open = emptyCells();
     if (!open.length) {
-      gameOver();
+      gameOver("Tablero conquistado. Partida perfecta.");
       return;
     }
     food = open[Math.floor(Math.random() * open.length)];
@@ -172,10 +182,14 @@
 
   function placeTraps() {
     const desired = Math.min(3, Math.floor(score / 180));
+    const before = traps.length;
     while (traps.length < desired) {
       const open = emptyCells();
       if (!open.length) return;
       traps.push(open[Math.floor(Math.random() * open.length)]);
+    }
+    if (running && traps.length > before) {
+      playDangerSound();
     }
   }
 
@@ -215,13 +229,11 @@
     const comboBoost = Math.max(0, combo - 1);
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
-        const wave = Math.sin(time * 1.5 + x * 0.75 + y * 0.45) * 7;
-        const warmFlash = Math.sin(time * 4 + x + y) * comboBoost * 2;
-        const hue = (x + y) % 2 === 0
-          ? 184 + wave + comboBoost * 8
-          : 212 - wave + level * 3 + warmFlash;
-        const sat = 34 + comboBoost * 6;
-        const light = (x + y) % 2 === 0 ? 11 + comboBoost * 1.8 : 15 + comboBoost * 1.8;
+        const isLight = (x + y) % 2 === 0;
+        const wave = Math.sin(time * 1.25 + x * 0.65 + y * 0.5) * 2.2;
+        const hue = isLight ? 39 + wave : 27 + comboBoost * 3 - wave;
+        const sat = isLight ? 58 + comboBoost * 2 : 38 + comboBoost * 5;
+        const light = isLight ? 75 + comboBoost * 1.2 : 51 + comboBoost * 1.4;
         ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
         ctx.fillRect(x * cell, y * cell, cell, cell);
       }
@@ -234,9 +246,25 @@
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+    drawCoordinates();
     ctx.strokeStyle = combo > 1 ? "rgba(255, 243, 189, 0.42)" : "rgba(255, 248, 216, 0.16)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+  }
+
+  function drawCoordinates() {
+    const files = "abcdefgh";
+    ctx.save();
+    ctx.font = `700 ${cell * 0.16}px Segoe UI, sans-serif`;
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < size; i += 1) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(58, 39, 24, 0.58)" : "rgba(255, 248, 216, 0.62)";
+      ctx.textAlign = "left";
+      ctx.fillText(files[i], i * cell + cell * 0.08, canvas.height - cell * 0.12);
+      ctx.textAlign = "right";
+      ctx.fillText(String(8 - i), canvas.width - cell * 0.08, i * cell + cell * 0.16);
+    }
+    ctx.restore();
   }
 
   function drawSnake() {
@@ -285,30 +313,26 @@
   function drawFood() {
     if (!food) return;
     const pulse = food.bonus ? Math.sin(performance.now() / 130) * 0.055 : 0;
-    const radius = cell * (food.bonus ? 0.42 + pulse : 0.36);
     const cx = food.x * cell + cell / 2;
     const cy = food.y * cell + cell / 2;
     ctx.save();
-    if (food.bonus) {
-      ctx.shadowColor = "rgba(255, 215, 96, 0.9)";
-      ctx.shadowBlur = 18;
-    }
-    ctx.fillStyle = food.bonus ? "#ffd45f" : "#fff3bd";
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.shadowColor = food.bonus ? "rgba(255, 215, 96, 0.95)" : "rgba(0, 0, 0, 0.42)";
+    ctx.shadowBlur = food.bonus ? 18 : 7;
     if (food.bonus) {
       ctx.strokeStyle = "rgba(255, 248, 216, 0.9)";
       ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cell * (0.43 + pulse), 0, Math.PI * 2);
       ctx.stroke();
     }
-    drawPiece(food.asset, food.x, food.y, 0.88);
+    drawPiece(food.asset, food.x, food.y, food.bonus ? 0.98 : 0.92);
     if (food.bonus) {
       ctx.fillStyle = "#16120b";
-      ctx.font = `800 ${cell * 0.16}px Segoe UI, sans-serif`;
+      ctx.shadowBlur = 0;
+      ctx.font = `900 ${cell * 0.14}px Segoe UI, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("BONUS", cx, cy + cell * 0.34);
+      ctx.fillText("BONUS", cx, cy + cell * 0.39);
     }
     ctx.restore();
   }
@@ -459,6 +483,23 @@
     setTimeout(() => playTinyPing(1880), 65);
   }
 
+  function playDangerSound() {
+    if (!audioContext) return;
+    const now = audioContext.currentTime;
+    const gain = audioContext.createGain();
+    const tone = audioContext.createOscillator();
+    tone.type = "square";
+    tone.frequency.setValueAtTime(150, now);
+    tone.frequency.setValueAtTime(110, now + 0.08);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.065, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    tone.connect(gain);
+    gain.connect(audioContext.destination);
+    tone.start(now);
+    tone.stop(now + 0.2);
+  }
+
   function playTinyPing(frequency) {
     if (!audioContext) return;
     const now = audioContext.currentTime;
@@ -514,12 +555,12 @@
     bestNode.textContent = best;
   }
 
-  function gameOver() {
+  function gameOver(reason) {
     running = false;
     if (controls) controls.classList.remove("active");
     playGameOverSound();
     overlay.querySelector("h1").textContent = "Jaque mate";
-    overlay.querySelector("p").textContent = `Puntuacion: ${score}. Pulsa jugar para la revancha.`;
+    overlay.querySelector("p").textContent = `${reason || "Partida terminada"} Puntuacion: ${score}.`;
     startButton.textContent = "Revancha";
     overlay.classList.remove("hidden");
   }
