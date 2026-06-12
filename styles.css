@@ -134,6 +134,13 @@ button {
   letter-spacing: 0.04em;
 }
 
+.lives-stat b {
+  color: #ff7680;
+  font-size: clamp(0.68rem, 2.2vmin, 0.96rem);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .board-wrap {
   position: relative;
   display: grid;
@@ -326,7 +333,7 @@ canvas {
   .stats {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
   }
 
@@ -345,7 +352,7 @@ canvas {
   }
 
   .stats b {
-    font-size: 0.95rem;
+    font-size: 0.86rem;
   }
 
   .stats small {
