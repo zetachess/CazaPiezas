@@ -26,6 +26,13 @@
     { asset: "wR", value: 40, name: "torre" },
     { asset: "wQ", value: 90, name: "reina" },
   ];
+  const pieceAccents = {
+    wP: { color: "#f7e4b1", label: "10" },
+    wN: { color: "#68d8ff", label: "30" },
+    wB: { color: "#b990ff", label: "30" },
+    wR: { color: "#ff9b45", label: "40" },
+    wQ: { color: "#ff4d78", label: "90" },
+  };
 
   let snake;
   let dir;
@@ -112,7 +119,7 @@
     const next = { x: head.x + dir.x, y: head.y + dir.y };
 
     if (hitWall(next)) {
-      gameOver("Partida terminada.", "¡Te saliste del tablero!");
+      gameOver("Partida terminada.", "¡Te dieron jaque mate, Goblin!");
       return;
     }
 
@@ -351,9 +358,11 @@
     const pulse = food.bonus ? Math.sin(performance.now() / 130) * 0.055 : 0;
     const cx = food.x * cell + cell / 2;
     const cy = food.y * cell + cell / 2;
+    const accent = pieceAccents[food.asset] || pieceAccents.wP;
     ctx.save();
-    ctx.shadowColor = food.bonus ? "rgba(255, 215, 96, 0.95)" : "rgba(0, 0, 0, 0.42)";
-    ctx.shadowBlur = food.bonus ? 18 : 7;
+    ctx.shadowColor = food.bonus ? "rgba(255, 215, 96, 0.95)" : accent.color;
+    ctx.shadowBlur = food.bonus ? 18 : 10;
+    drawValueFrame(food, accent);
     if (food.bonus) {
       ctx.strokeStyle = "rgba(255, 248, 216, 0.9)";
       ctx.lineWidth = 3;
@@ -370,6 +379,35 @@
       ctx.textBaseline = "middle";
       ctx.fillText("BONUS", cx, cy + cell * 0.39);
     }
+    ctx.restore();
+  }
+
+  function drawValueFrame(piece, accent) {
+    const x = piece.x * cell;
+    const y = piece.y * cell;
+    const inset = cell * 0.12;
+    const len = cell * 0.2;
+    ctx.save();
+    ctx.strokeStyle = accent.color;
+    ctx.lineWidth = Math.max(3, cell * 0.035);
+    ctx.globalAlpha = piece.bonus ? 0.96 : 0.76;
+    ctx.beginPath();
+    ctx.moveTo(x + inset, y + inset + len);
+    ctx.lineTo(x + inset, y + inset);
+    ctx.lineTo(x + inset + len, y + inset);
+    ctx.moveTo(x + cell - inset - len, y + inset);
+    ctx.lineTo(x + cell - inset, y + inset);
+    ctx.lineTo(x + cell - inset, y + inset + len);
+    ctx.moveTo(x + cell - inset, y + cell - inset - len);
+    ctx.lineTo(x + cell - inset, y + cell - inset);
+    ctx.lineTo(x + cell - inset - len, y + cell - inset);
+    ctx.moveTo(x + inset + len, y + cell - inset);
+    ctx.lineTo(x + inset, y + cell - inset);
+    ctx.lineTo(x + inset, y + cell - inset - len);
+    ctx.stroke();
+    ctx.fillStyle = accent.color;
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(x + inset, y + cell - inset * 0.7, cell - inset * 2, Math.max(3, cell * 0.035));
     ctx.restore();
   }
 
