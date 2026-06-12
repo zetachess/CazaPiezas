@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090b10">
+    <title>GOBLINAJEDREZ CazaPiezas</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell" aria-label="GOBLINAJEDREZ CazaPiezas">
+      <header class="hud">
+        <div class="brand">
+          <img src="assets/goblin-logo.png" alt="">
+          <div>
+            <p>GOBLINAJEDREZ</p>
+            <strong>CazaPiezas</strong>
+          </div>
+        </div>
+        <div class="stats" aria-label="Marcador">
+          <span><em aria-hidden="true">♟</em><b id="score">0</b><small>Puntos</small></span>
+          <span><em aria-hidden="true">⚡</em><b id="level">1</b><small>Nivel</small></span>
+          <span><em aria-hidden="true">🏆</em><b id="best">0</b><small>Record</small></span>
+        </div>
+      </header>
+
+      <section class="board-wrap">
+        <canvas id="game" width="720" height="720" aria-label="Tablero de GOBLINAJEDREZ CazaPiezas"></canvas>
+        <div class="overlay" id="overlay">
+          <img src="assets/goblin-logo.png" alt="">
+          <h1>CazaPiezas</h1>
+          <p>Come piezas, esquiva jaques y domina el tablero.</p>
+          <button id="startButton" type="button">Jugar</button>
+        </div>
+      </section>
+
+      <footer class="controls" aria-label="Controles">
+        <button type="button" data-dir="up" aria-label="Arriba">▲</button>
+        <div>
+          <button type="button" data-dir="left" aria-label="Izquierda">◀</button>
+          <button type="button" data-dir="down" aria-label="Abajo">▼</button>
+          <button type="button" data-dir="right" aria-label="Derecha">▶</button>
+        </div>
+      </footer>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
