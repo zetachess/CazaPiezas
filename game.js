@@ -4,6 +4,10 @@
   const scoreNode = document.getElementById("score");
   const levelNode = document.getElementById("level");
   const bestNode = document.getElementById("best");
+  const comboPill = document.getElementById("comboPill");
+  const comboText = document.getElementById("comboText");
+  const comboLabel = document.getElementById("comboLabel");
+  const comboBar = document.getElementById("comboBar");
   const overlay = document.getElementById("overlay");
   const startButton = document.getElementById("startButton");
   const logo = new Image();
@@ -34,6 +38,11 @@
   let speed = 280;
   let audioContext = null;
   let bursts = [];
+  let combo = 1;
+  let comboCount = 0;
+  let comboUntil = 0;
+  let comboWindow = 5600;
+  let screenShake = 0;
 
   ["wP", "wN", "wB", "wR", "wQ", "wK", "bK"].forEach((asset) => {
     const image = new Image();
@@ -56,8 +65,15 @@
     score = 0;
     level = 1;
     speed = 280;
+    combo = 1;
+    comboCount = 0;
+    comboUntil = 0;
+    comboWindow = 5600;
+    bursts = [];
+    screenShake = 0;
     spawnFood();
     updateHud();
+    updateComboHud();
   }
 
   function start() {
@@ -74,6 +90,7 @@
       draw();
       return;
     }
+    updateCombo(time);
     if (time - lastStep >= speed) {
       step();
       lastStep = time;
@@ -95,13 +112,13 @@
     snake.unshift(next);
 
     if (same(next, food)) {
-      score += food.value;
-      addBurst(next, food.value);
-      playEatSound(food.value);
+      const earned = captureFood(next);
       const newLevel = Math.min(9, 1 + Math.floor(score / 90));
       if (newLevel !== level) {
         level = newLevel;
         speed = Math.max(150, 280 - (level - 1) * 12);
+        addBurst(next, 0, combo, true, `Nivel ${level}`);
+        playLevelSound();
       }
       if (score > best) {
         best = score;
@@ -110,15 +127,37 @@
       placeTraps();
       spawnFood();
       updateHud();
+      updateComboHud();
     } else {
       snake.pop();
     }
   }
 
+  function captureFood(pos) {
+    const now = performance.now();
+    comboCount = now <= comboUntil ? comboCount + 1 : 1;
+    combo = comboCount >= 7 ? 5 : comboCount >= 5 ? 4 : comboCount >= 3 ? 3 : comboCount >= 2 ? 2 : 1;
+    comboWindow = food.bonus ? 7200 : 5600;
+    comboUntil = now + comboWindow;
+
+    const base = food.value + (food.bonus ? 25 : 0);
+    const earned = base * combo;
+    score += earned;
+    screenShake = Math.min(12, 3 + combo * 1.4);
+    addBurst(pos, earned, combo, food.bonus);
+    playEatSound(earned, combo);
+    return earned;
+  }
+
   function spawnFood() {
     const open = emptyCells();
+    if (!open.length) {
+      gameOver();
+      return;
+    }
     food = open[Math.floor(Math.random() * open.length)];
     Object.assign(food, pieces[Math.floor(Math.random() * pieces.length)]);
+    food.bonus = Math.random() < 0.18;
   }
 
   function placeTraps() {
@@ -146,10 +185,18 @@
 
   function draw() {
     drawBoard();
+    ctx.save();
+    if (screenShake > 0) {
+      const wobble = Math.sin(screenShake * 2.1) * screenShake;
+      ctx.translate(wobble, -wobble * 0.5);
+      screenShake *= 0.82;
+      if (screenShake < 0.5) screenShake = 0;
+    }
     drawTraps();
     drawFood();
     drawSnake();
     drawBursts();
+    ctx.restore();
   }
 
   function drawBoard() {
@@ -205,11 +252,33 @@
 
   function drawFood() {
     if (!food) return;
-    ctx.fillStyle = "#fff3bd";
+    const pulse = food.bonus ? Math.sin(performance.now() / 130) * 0.055 : 0;
+    const radius = cell * (food.bonus ? 0.42 + pulse : 0.36);
+    const cx = food.x * cell + cell / 2;
+    const cy = food.y * cell + cell / 2;
+    ctx.save();
+    if (food.bonus) {
+      ctx.shadowColor = "rgba(255, 215, 96, 0.9)";
+      ctx.shadowBlur = 18;
+    }
+    ctx.fillStyle = food.bonus ? "#ffd45f" : "#fff3bd";
     ctx.beginPath();
-    ctx.arc(food.x * cell + cell / 2, food.y * cell + cell / 2, cell * 0.36, 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fill();
+    if (food.bonus) {
+      ctx.strokeStyle = "rgba(255, 248, 216, 0.9)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
     drawPiece(food.asset, food.x, food.y, 0.88);
+    if (food.bonus) {
+      ctx.fillStyle = "#16120b";
+      ctx.font = `800 ${cell * 0.16}px Segoe UI, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("BONUS", cx, cy + cell * 0.34);
+    }
+    ctx.restore();
   }
 
   function drawTraps() {
@@ -238,13 +307,13 @@
     ctx.fillText(asset, x * cell + cell / 2, y * cell + cell / 2);
   }
 
-  function addBurst(pos, value) {
+  function addBurst(pos, value, multiplier, bonus, customText) {
     bursts.push({
       x: pos.x * cell + cell / 2,
       y: pos.y * cell + cell / 2,
       value,
       age: 0,
-      text: value >= 50 ? "💎 +50" : `+${value}`,
+      text: customText || `${bonus ? "💎 " : ""}${multiplier > 1 ? `x${multiplier} ` : ""}+${value}`,
     });
   }
 
@@ -254,8 +323,8 @@
       const alpha = 1 - burst.age / 34;
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = burst.value >= 50 ? "#7fcdd8" : "#fff3bd";
-      ctx.font = `800 ${cell * 0.18}px Segoe UI, sans-serif`;
+      ctx.fillStyle = burst.value >= 75 ? "#7fcdd8" : "#fff3bd";
+      ctx.font = `800 ${cell * (burst.value >= 75 ? 0.2 : 0.18)}px Segoe UI, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0, 0, 0, 0.62)";
@@ -264,6 +333,26 @@
       ctx.restore();
       burst.age += 1;
     });
+  }
+
+  function updateCombo(time) {
+    if (comboCount > 0 && time > comboUntil) {
+      combo = 1;
+      comboCount = 0;
+      comboUntil = 0;
+    }
+    updateComboHud(time);
+  }
+
+  function updateComboHud(time) {
+    if (!comboPill || !comboText || !comboLabel || !comboBar) return;
+    const now = time || performance.now();
+    const active = comboCount > 0 && comboUntil > now;
+    comboPill.classList.toggle("active", active);
+    comboText.textContent = combo > 1 ? `x${combo}` : "x1";
+    comboLabel.textContent = comboCount > 1 ? `${comboCount} capturas` : "Racha";
+    const pct = active ? Math.max(0, Math.min(1, (comboUntil - now) / comboWindow)) : 0;
+    comboBar.style.transform = `scaleX(${pct})`;
   }
 
   function unlockAudio() {
@@ -277,20 +366,21 @@
     }
   }
 
-  function playEatSound(value) {
+  function playEatSound(value, multiplier) {
     if (!audioContext) return;
     const now = audioContext.currentTime;
+    const intensity = Math.min(value, 150);
     const gain = audioContext.createGain();
     const primary = audioContext.createOscillator();
     const sparkle = audioContext.createOscillator();
     primary.type = "sine";
-    sparkle.type = value >= 50 ? "triangle" : "sine";
-    primary.frequency.setValueAtTime(420 + value * 8, now);
-    primary.frequency.exponentialRampToValueAtTime(680 + value * 9, now + 0.09);
-    sparkle.frequency.setValueAtTime(value >= 50 ? 1180 : 880, now);
-    sparkle.frequency.exponentialRampToValueAtTime(value >= 50 ? 1660 : 1120, now + 0.07);
+    sparkle.type = value >= 75 ? "triangle" : "sine";
+    primary.frequency.setValueAtTime(420 + intensity * 5, now);
+    primary.frequency.exponentialRampToValueAtTime(680 + intensity * 4, now + 0.09);
+    sparkle.frequency.setValueAtTime(value >= 75 ? 1280 : 880, now);
+    sparkle.frequency.exponentialRampToValueAtTime(value >= 75 ? 1860 : 1120, now + 0.07);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(value >= 50 ? 0.13 : 0.08, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(value >= 75 ? 0.13 : 0.08, now + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
     primary.connect(gain);
     sparkle.connect(gain);
@@ -299,6 +389,31 @@
     sparkle.start(now);
     primary.stop(now + 0.17);
     sparkle.stop(now + 0.12);
+    if (multiplier >= 3) {
+      setTimeout(() => playTinyPing(1560 + multiplier * 120), 60);
+    }
+  }
+
+  function playTinyPing(frequency) {
+    if (!audioContext) return;
+    const now = audioContext.currentTime;
+    const gain = audioContext.createGain();
+    const tone = audioContext.createOscillator();
+    tone.type = "triangle";
+    tone.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.055, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+    tone.connect(gain);
+    gain.connect(audioContext.destination);
+    tone.start(now);
+    tone.stop(now + 0.12);
+  }
+
+  function playLevelSound() {
+    playTinyPing(980);
+    setTimeout(() => playTinyPing(1320), 70);
+    setTimeout(() => playTinyPing(1760), 140);
   }
 
   function playGameOverSound() {
