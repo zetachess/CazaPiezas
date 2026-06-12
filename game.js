@@ -81,8 +81,9 @@
     unlockAudio();
     reset();
     running = true;
-    controls.classList.add("active");
+    if (controls) controls.classList.add("active");
     overlay.classList.add("hidden");
+    playStartSound();
     lastStep = performance.now();
     requestAnimationFrame(loop);
   }
@@ -137,6 +138,7 @@
 
   function captureFood(pos) {
     const now = performance.now();
+    const previousCombo = now <= comboUntil ? combo : 1;
     comboCount = now <= comboUntil ? comboCount + 1 : 1;
     combo = comboCount >= 7 ? 5 : comboCount >= 5 ? 4 : comboCount >= 3 ? 3 : comboCount >= 2 ? 2 : 1;
     comboWindow = food.bonus ? 7200 : 5600;
@@ -148,6 +150,9 @@
     screenShake = Math.min(12, 3 + combo * 1.4);
     addBurst(pos, earned, combo, food.bonus);
     playEatSound(earned, combo);
+    if (combo > previousCombo) {
+      playComboSound(combo);
+    }
     return earned;
   }
 
@@ -160,6 +165,9 @@
     food = open[Math.floor(Math.random() * open.length)];
     Object.assign(food, pieces[Math.floor(Math.random() * pieces.length)]);
     food.bonus = Math.random() < 0.18;
+    if (food.bonus && running) {
+      playBonusSpawnSound();
+    }
   }
 
   function placeTraps() {
@@ -203,13 +211,30 @@
 
   function drawBoard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const time = performance.now() / 1000;
+    const comboBoost = Math.max(0, combo - 1);
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
-        ctx.fillStyle = (x + y) % 2 === 0 ? "#142026" : "#1e2b2b";
+        const wave = Math.sin(time * 1.5 + x * 0.75 + y * 0.45) * 7;
+        const warmFlash = Math.sin(time * 4 + x + y) * comboBoost * 2;
+        const hue = (x + y) % 2 === 0
+          ? 184 + wave + comboBoost * 8
+          : 212 - wave + level * 3 + warmFlash;
+        const sat = 34 + comboBoost * 6;
+        const light = (x + y) % 2 === 0 ? 11 + comboBoost * 1.8 : 15 + comboBoost * 1.8;
+        ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`;
         ctx.fillRect(x * cell, y * cell, cell, cell);
       }
     }
-    ctx.strokeStyle = "rgba(255, 248, 216, 0.16)";
+    if (combo > 1) {
+      const glow = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      glow.addColorStop(0, "rgba(127, 205, 216, 0.16)");
+      glow.addColorStop(0.55, "rgba(255, 243, 189, 0.12)");
+      glow.addColorStop(1, "rgba(255, 122, 69, 0.14)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.strokeStyle = combo > 1 ? "rgba(255, 243, 189, 0.42)" : "rgba(255, 248, 216, 0.16)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
   }
@@ -222,8 +247,9 @@
         drawHead(px, py);
         return;
       }
-      const hue = 184 - Math.min(index * 3, 60);
-      ctx.fillStyle = `hsl(${hue} 52% ${Math.max(31, 50 - index)}%)`;
+      const hue = 176 + combo * 8 - Math.min(index * 5, 74);
+      const light = Math.max(30, 50 - index + combo * 2);
+      ctx.fillStyle = `hsl(${hue} 58% ${light}%)`;
       roundedRect(px + 8, py + 8, cell - 16, cell - 16, 16);
       ctx.fill();
       ctx.fillStyle = "rgba(255, 248, 216, 0.12)";
@@ -235,9 +261,13 @@
 
   function drawHead(px, py) {
     ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
-    ctx.shadowBlur = 14;
-    ctx.fillStyle = "#7fcdd8";
+    ctx.shadowColor = combo > 2 ? "rgba(255, 243, 189, 0.48)" : "rgba(0, 0, 0, 0.35)";
+    ctx.shadowBlur = combo > 2 ? 22 : 14;
+    const headFill = ctx.createLinearGradient(px, py, px + cell, py + cell);
+    headFill.addColorStop(0, combo > 1 ? "#fff3bd" : "#7fcdd8");
+    headFill.addColorStop(0.55, "#5de0cb");
+    headFill.addColorStop(1, "#2d7d86");
+    ctx.fillStyle = headFill;
     roundedRect(px + 4, py + 4, cell - 8, cell - 8, 18);
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -396,6 +426,39 @@
     }
   }
 
+  function playStartSound() {
+    playTinyPing(520);
+    setTimeout(() => playTinyPing(760), 70);
+    setTimeout(() => playTinyPing(1040), 140);
+  }
+
+  function playTurnSound() {
+    if (!audioContext) return;
+    const now = audioContext.currentTime;
+    const gain = audioContext.createGain();
+    const click = audioContext.createOscillator();
+    click.type = "square";
+    click.frequency.setValueAtTime(260, now);
+    click.frequency.exponentialRampToValueAtTime(180, now + 0.035);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.026, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    click.connect(gain);
+    gain.connect(audioContext.destination);
+    click.start(now);
+    click.stop(now + 0.055);
+  }
+
+  function playComboSound(multiplier) {
+    playTinyPing(920 + multiplier * 90);
+    setTimeout(() => playTinyPing(1180 + multiplier * 120), 55);
+  }
+
+  function playBonusSpawnSound() {
+    playTinyPing(1500);
+    setTimeout(() => playTinyPing(1880), 65);
+  }
+
   function playTinyPing(frequency) {
     if (!audioContext) return;
     const now = audioContext.currentTime;
@@ -453,7 +516,7 @@
 
   function gameOver() {
     running = false;
-    controls.classList.remove("active");
+    if (controls) controls.classList.remove("active");
     playGameOverSound();
     overlay.querySelector("h1").textContent = "Jaque mate";
     overlay.querySelector("p").textContent = `Puntuacion: ${score}. Pulsa jugar para la revancha.`;
@@ -471,7 +534,11 @@
     const vector = vectors[next];
     if (!vector) return;
     if (vector.x + dir.x === 0 && vector.y + dir.y === 0) return;
+    const alreadyQueued = vector.x === nextDir.x && vector.y === nextDir.y;
     nextDir = vector;
+    if (running && !alreadyQueued) {
+      playTurnSound();
+    }
   }
 
   function hitWall(pos) {
