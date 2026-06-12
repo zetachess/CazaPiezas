@@ -85,6 +85,7 @@
     reset();
     running = true;
     if (controls) controls.classList.add("active");
+    overlay.classList.remove("game-over");
     overlay.classList.add("hidden");
     playStartSound();
     lastStep = performance.now();
@@ -111,7 +112,7 @@
     const next = { x: head.x + dir.x, y: head.y + dir.y };
 
     if (hitWall(next)) {
-      gameOver("Te saliste del tablero. Partida terminada.");
+      gameOver("Partida terminada.", "¡Te saliste del tablero!");
       return;
     }
 
@@ -125,7 +126,7 @@
       traps.splice(trapIndex, 1);
       snake.unshift(next);
       snake.pop();
-      loseLife("Cuidado! Has tocado al rey. -1 vida", next);
+      loseLife(next);
       if (running) placeTraps();
       return;
     }
@@ -167,6 +168,7 @@
     score += earned;
     screenShake = Math.min(12, 3 + combo * 1.4);
     addBurst(pos, earned, combo, food.bonus);
+    addCaptureFeedback(pos, food);
     playEatSound(earned, combo);
     if (combo > previousCombo) {
       playComboSound(combo);
@@ -177,7 +179,7 @@
   function spawnFood() {
     const options = foodOptions();
     if (!options.length) {
-      gameOver("Tablero conquistado. Partida perfecta.");
+      gameOver("Partida perfecta.", "¡Tablero conquistado!");
       return;
     }
     const option = options[Math.floor(Math.random() * options.length)];
@@ -397,13 +399,24 @@
     ctx.fillText(asset, x * cell + cell / 2, y * cell + cell / 2);
   }
 
-  function addBurst(pos, value, multiplier, bonus, customText, danger) {
+  function addCaptureFeedback(pos, piece) {
+    const labelPos = { x: pos.x, y: pos.y + 0.32 };
+    if (piece.asset === "wR") {
+      addBurst(labelPos, 0, 1, false, "💥 Buena captura", false, "praise");
+    }
+    if (piece.asset === "wQ") {
+      addBurst(labelPos, 0, 1, false, "🔥 Captura brutal", false, "brutal");
+    }
+  }
+
+  function addBurst(pos, value, multiplier, bonus, customText, danger, mood) {
     bursts.push({
       x: pos.x * cell + cell / 2,
       y: pos.y * cell + cell / 2,
       value,
       age: 0,
       danger,
+      mood,
       text: customText || `${bonus ? "💎 " : ""}${multiplier > 1 ? `x${multiplier} ` : ""}+${value}`,
     });
   }
@@ -414,8 +427,16 @@
       const alpha = 1 - burst.age / 34;
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = burst.danger ? "#ff7680" : burst.value >= 75 ? "#7fcdd8" : "#fff3bd";
-      ctx.font = `800 ${cell * (burst.value >= 75 ? 0.2 : 0.18)}px Segoe UI, sans-serif`;
+      ctx.fillStyle = burst.mood === "warning" ? "#ffdd72" :
+        burst.mood === "brutal" ? "#ff7a45" :
+        burst.mood === "praise" ? "#7fcdd8" :
+        burst.danger ? "#ff7680" :
+        burst.value >= 75 ? "#7fcdd8" : "#fff3bd";
+      const fontScale = burst.mood === "warning" ? 0.23 :
+        burst.mood === "brutal" ? 0.17 :
+        burst.mood === "praise" ? 0.16 :
+        burst.value >= 75 ? 0.2 : 0.18;
+      ctx.font = `900 ${cell * fontScale}px Segoe UI, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0, 0, 0, 0.62)";
@@ -601,30 +622,31 @@
     livesNode.textContent = "♥".repeat(lives) + "♡".repeat(Math.max(0, 3 - lives));
   }
 
-  function loseLife(reason, pos) {
+  function loseLife(pos) {
     lives = Math.max(0, lives - 1);
     combo = 1;
     comboCount = 0;
     comboUntil = 0;
     screenShake = 11;
-    addBurst(pos || snake[0], 0, 1, false, "♥ -1", true);
+    addBurst(pos || snake[0], 0, 1, false, "⚠️ ¡Cuidado!", true, "warning");
+    addBurst(pos || snake[0], 0, 1, false, "♥ -1", true, "danger");
     updateHud();
     updateComboHud();
     playLifeLostSound();
     if (lives <= 0) {
-      gameOver("Has perdido todas tus vidas.");
+      gameOver("¡Perdiste todas tus vidas!", "Goblin, te dieron jaque mate");
       return;
     }
-    addBurst(pos || snake[0], 0, 1, false, reason, true);
   }
 
-  function gameOver(reason) {
+  function gameOver(reason, title) {
     running = false;
     if (controls) controls.classList.remove("active");
     playGameOverSound();
-    overlay.querySelector("h1").textContent = "Jaque mate";
+    overlay.classList.add("game-over");
+    overlay.querySelector("h1").textContent = title || "Jaque mate";
     overlay.querySelector("p").textContent = `${reason || "Partida terminada"} Puntuacion: ${score}.`;
-    startButton.textContent = "Revancha";
+    startButton.textContent = "🕹️ Jugar de nuevo";
     overlay.classList.remove("hidden");
   }
 
