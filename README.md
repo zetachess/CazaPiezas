@@ -10,16 +10,25 @@ Sube esta carpeta completa (`index.html`, `styles.css`, `game.js` y `assets/`) a
 
 ## Iframe
 
+Iframe recomendado:
+
 ```html
 <iframe
-  style="max-width:100%"
+  style="max-width:100%;width:100%;height:min(520px,90vh)"
   src="https://TU_USUARIO.github.io/TU_REPO/goblinsnake/"
   title="GOBLINAJEDREZ CazaPiezas"
   width="500"
-  height="380"
+  height="520"
   frameborder="0"
+  allow="autoplay; gamepad"
   allowfullscreen>
 </iframe>
+```
+
+Iframe compacto tipo Wordwall:
+
+```html
+<iframe style="max-width:100%" src="https://TU_USUARIO.github.io/TU_REPO/goblinsnake/" width="500" height="380" frameborder="0" allow="autoplay; gamepad" allowfullscreen></iframe>
 ```
 
 Si lo publicas en la raiz del repo, cambia el `src` a:
