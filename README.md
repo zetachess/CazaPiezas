@@ -12,13 +12,13 @@ Sube esta carpeta completa (`index.html`, `styles.css`, `game.js` y `assets/`) a
 
 ```html
 <iframe
+  style="max-width:100%"
   src="https://TU_USUARIO.github.io/TU_REPO/goblinsnake/"
   title="GOBLINAJEDREZ CazaPiezas"
-  width="100%"
-  height="820"
-  loading="lazy"
-  style="border:0;max-width:860px;aspect-ratio:1/1.16;"
-  allow="gamepad">
+  width="500"
+  height="380"
+  frameborder="0"
+  allowfullscreen>
 </iframe>
 ```
 
